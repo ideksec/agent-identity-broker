@@ -1,0 +1,51 @@
+# Phase 1 stub policy: default allow. Replaced by per-target policies in
+# later phases. The data ConfigMap holds agents.yaml + users.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opa-policies
+  namespace: broker-system
+data:
+  default.rego: |
+    package broker
+
+    default decision := {
+        "allow": true,
+        "reason": "phase1 stub: default allow",
+        "policy_id": "stub.default_allow",
+        "scope_granted": {},
+        "max_ttl_seconds": 900,
+        "requires_step_up": false,
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opa-data
+  namespace: broker-system
+data:
+  agents.yaml: |
+    entries:
+      "spiffe://broker.local/ns/agents/sa/triage-bot":
+        display_name: "Triage Bot"
+        owner: "platform-team"
+        purpose: "Demo agent for the broker POC"
+        entitlements: {}
+  users.yaml: |
+    entries:
+      "alice@acme.com":
+        groups: [payments-eng, on-call]
+      "bob@acme.com":
+        groups: [security-team]
+      "carol@acme.com":
+        groups: [interns]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opa-config
+  namespace: broker-system
+data:
+  config.yaml: |
+    decision_logs:
+      console: true

@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mock-idp
+  namespace: broker-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mock-idp-users
+  namespace: broker-system
+data:
+  users.yaml: |
+    users:
+      - subject: alice@acme.com
+        email: alice@acme.com
+        groups: [payments-eng, on-call]
+      - subject: bob@acme.com
+        email: bob@acme.com
+        groups: [security-team]
+      - subject: carol@acme.com
+        email: carol@acme.com
+        groups: [interns]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-idp
+  namespace: broker-system
+spec:
+  selector:
+    app: mock-idp
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-idp
+  namespace: broker-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-idp
+  template:
+    metadata:
+      labels:
+        app: mock-idp
+    spec:
+      serviceAccountName: mock-idp
+      containers:
+        - name: mock-idp
+          image: localhost/agent-broker/mock-idp:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: IDP_ISSUER
+              value: "https://mock-idp.broker-system.svc.cluster.local"
+            - name: IDP_AUDIENCE
+              value: "https://broker.broker-system.svc.cluster.local"
+            - name: IDP_USERS_PATH
+              value: "/data/users.yaml"
+            - name: IDP_PRIVATE_KEY_PATH
+              value: "/secrets/mock-idp-key/private_key"
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: users
+              mountPath: /data
+            - name: signing-key
+              mountPath: /secrets/mock-idp-key
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+      volumes:
+        - name: users
+          configMap:
+            name: mock-idp-users
+        - name: signing-key
+          secret:
+            secretName: mock-idp-key
+            optional: true

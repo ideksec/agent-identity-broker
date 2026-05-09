@@ -1,0 +1,55 @@
+global:
+  spire:
+    trustDomain: broker.local
+    clusterName: broker
+    recommendations:
+      enabled: true
+
+spire-server:
+  ca:
+    keyType: rsa-2048
+  controllerManager:
+    enabled: true
+    identities:
+      clusterSPIFFEIDs:
+        # Auto-register: spiffe://broker.local/ns/<namespace>/sa/<sa-name>
+        # for any pod in broker-system or agents namespaces.
+        broker:
+          spiffeIDTemplate: "spiffe://{{ .TrustDomain }}/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}"
+          podSelector:
+            matchLabels:
+              app: broker
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: broker-system
+        gateway:
+          spiffeIDTemplate: "spiffe://{{ .TrustDomain }}/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}"
+          podSelector:
+            matchLabels:
+              app: gateway
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: broker-system
+        triage-bot:
+          spiffeIDTemplate: "spiffe://{{ .TrustDomain }}/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}"
+          podSelector:
+            matchLabels:
+              app: triage-bot
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: agents
+
+spire-agent:
+  workloadAttestors:
+    k8s:
+      enabled: true
+      # POC only — kubelet TLS verification disabled to avoid extra setup.
+      skipKubeletVerification: true
+
+spiffe-oidc-discovery-provider:
+  enabled: true
+  config:
+    issuer: "https://spire.broker.local"
+
+spiffe-csi-driver:
+  enabled: true

@@ -1,0 +1,16 @@
+entries:
+  "alice@acme.com":
+    github:
+      - repository_pattern: "acme-test/*"
+        permissions: ["contents:read", "issues:read", "issues:write"]
+    aws:
+      - role_arn_pattern: "arn:aws:iam::*:role/agent-demo-readonly"
+    atlassian:
+      - project_pattern: "*"
+        permissions: ["read"]
+  "bob@acme.com":
+    github:
+      - repository_pattern: "acme-prod/*"
+        permissions: ["contents:read"]
+  "carol@acme.com":
+    github: []

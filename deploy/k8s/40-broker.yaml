@@ -1,0 +1,140 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: broker
+  namespace: broker-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: broker-config
+  namespace: broker-system
+data:
+  BROKER_OPA_URL: "http://localhost:8181"
+  BROKER_TRUST_DOMAIN: "broker.local"
+  BROKER_AUDIENCE: "https://broker.broker-system.svc.cluster.local"
+  BROKER_SPIRE_JWKS_URL: "http://spire-spiffe-oidc-discovery-provider.spire.svc.cluster.local/keys"
+  BROKER_SPIRE_ISSUER: "https://broker.broker.local"
+  BROKER_MOCK_IDP_JWKS_URL: "http://mock-idp.broker-system.svc.cluster.local:8080/.well-known/jwks.json"
+  BROKER_MOCK_IDP_ISSUER: "https://mock-idp.broker-system.svc.cluster.local"
+  BROKER_GATEWAY_PUBLIC_URL: "https://gateway.broker-system.svc.cluster.local"
+  BROKER_MOCK_CONNECTORS_BASE: "http://mock-connectors.broker-system.svc.cluster.local:8080"
+  BROKER_LOG_LEVEL: "INFO"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broker
+  namespace: broker-system
+spec:
+  selector:
+    app: broker
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broker
+  namespace: broker-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: broker
+  template:
+    metadata:
+      labels:
+        app: broker
+    spec:
+      serviceAccountName: broker
+      initContainers:
+        - name: alembic
+          image: localhost/agent-broker/broker:dev
+          imagePullPolicy: IfNotPresent
+          workingDir: /app/broker
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "running alembic upgrade head"
+              alembic upgrade head
+          env:
+            - name: BROKER_DB_URL
+              value: "postgresql+asyncpg://broker:$(POSTGRES_PASSWORD)@postgres.broker-system.svc.cluster.local:5432/broker"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: password
+      containers:
+        - name: broker
+          image: localhost/agent-broker/broker:dev
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: broker-config
+          env:
+            - name: BROKER_DB_URL
+              value: "postgresql+asyncpg://broker:$(POSTGRES_PASSWORD)@postgres.broker-system.svc.cluster.local:5432/broker"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: password
+            - name: BROKER_VAULT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vault-key
+                  key: key
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+        - name: opa
+          image: openpolicyagent/opa:0.70.0
+          args:
+            - "run"
+            - "--server"
+            - "--addr=127.0.0.1:8181"
+            - "--config-file=/config/config.yaml"
+            - "/policies"
+            - "/data"
+          volumeMounts:
+            - name: opa-policies
+              mountPath: /policies
+              readOnly: true
+            - name: opa-data
+              mountPath: /data
+              readOnly: true
+            - name: opa-config
+              mountPath: /config
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health?bundles
+              port: 8181
+              host: 127.0.0.1
+            periodSeconds: 5
+      volumes:
+        - name: opa-policies
+          configMap:
+            name: opa-policies
+        - name: opa-data
+          configMap:
+            name: opa-data
+        - name: opa-config
+          configMap:
+            name: opa-config

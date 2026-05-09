@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: broker-system
+  labels:
+    kubernetes.io/metadata.name: broker-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agents
+  labels:
+    kubernetes.io/metadata.name: agents
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spire
+  labels:
+    kubernetes.io/metadata.name: spire

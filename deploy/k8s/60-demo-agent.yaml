@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: triage-bot
+  namespace: agents
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: triage-bot-demo
+  namespace: agents
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: triage-bot
+    spec:
+      serviceAccountName: triage-bot
+      restartPolicy: Never
+      containers:
+        - name: demo-agent
+          image: localhost/agent-broker/demo-agent:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: BROKER_URL
+              value: "http://broker.broker-system.svc.cluster.local:8080"
+            # SVID audience must match what the broker validates against.
+            - name: BROKER_AUDIENCE
+              value: "https://broker.broker-system.svc.cluster.local"
+            - name: EXPECTED_SPIFFE_ID
+              value: "spiffe://broker.local/ns/agents/sa/triage-bot"
+            - name: MOCK_IDP_URL
+              value: "http://mock-idp.broker-system.svc.cluster.local:8080"
+            - name: OBO_USER
+              value: "alice@acme.com"
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: "unix:///run/spire/agent-sockets/spire-agent.sock"
+          volumeMounts:
+            - name: spire-agent-socket
+              mountPath: /run/spire/agent-sockets
+              readOnly: true
+      volumes:
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/agent-sockets
+            type: Directory

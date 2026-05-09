@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# pytest / coverage
+.pytest_cache/
+**/.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Generated egg-info
+**/*.egg-info/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Local env / secrets
+.env
+.env.local
+*.pem
+*.key
+secrets/
+
+# Generated SPIRE manifests (from helm template)
+deploy/k8s/10-spire/*.yaml
+!deploy/k8s/10-spire/.gitkeep
+
+# Build artifacts
+*.tar
+*.tar.gz
+
+# uv / poetry
+.python-version
+uv.lock
+poetry.lock

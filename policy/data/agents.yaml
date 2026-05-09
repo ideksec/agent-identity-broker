@@ -1,0 +1,22 @@
+entries:
+  "spiffe://broker.local/ns/agents/sa/triage-bot":
+    display_name: "Triage Bot"
+    owner: "platform-team"
+    purpose: "Demo agent for the broker POC"
+    entitlements:
+      github:
+        - repository_pattern: "acme-test/*"
+          permissions: ["contents:read", "issues:read", "issues:write"]
+      aws:
+        - role_arn_pattern: "arn:aws:iam::*:role/agent-demo-readonly"
+          regions: ["us-east-1", "us-west-2"]
+      atlassian:
+        - project_pattern: "DEMO"
+          permissions: ["read"]
+      kubernetes:
+        - namespace_pattern: "demo-ns"
+          verbs: ["get", "list", "create"]
+          resources: ["configmaps"]
+      oauth-generic:
+        - resource_pattern: "things"
+          permissions: ["read"]
