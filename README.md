@@ -1,5 +1,18 @@
 # Agent Identity Broker (POC)
 
+> ## ⚠️ WARNING — VIBE-CODED, NOT FOR PRODUCTION ⚠️
+>
+> **This repository is a vibe-coded learning/experimentation project. It has
+> NOT been security-reviewed, threat-modeled, penetration-tested, or hardened
+> in any meaningful way. It almost certainly contains bugs, broken assumptions,
+> insecure defaults, and outright mistakes.**
+>
+> **DO NOT use this code, or any part of it, in a production system, in any
+> environment that handles real credentials, or anywhere a failure would have
+> real-world consequences.** It exists purely to learn about SPIFFE, OPA,
+> credential brokering, and related concepts. Treat it as a sketch, not a
+> reference implementation.
+
 Central identity broker that issues short-lived, policy-scoped credentials to
 AI agents on Kubernetes. SPIFFE workload identity in, GitHub / AWS / SaaS
 access credentials out, every decision audited.
