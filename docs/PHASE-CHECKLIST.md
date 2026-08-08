@@ -1,6 +1,6 @@
 # Phase Acceptance Checklist
 
-Pulled from `POC_SPEC.md` §20. Tick boxes as phases are completed.
+Acceptance criteria per phase. Tick boxes as phases are completed.
 
 ## Phase 1 — SPIRE + broker skeleton
 
