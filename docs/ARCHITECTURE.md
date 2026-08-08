@@ -1,7 +1,7 @@
 # Architecture
 
-This is the narrative companion to `POC_SPEC.md` §3. Read the spec for the full
-picture; this document captures the Phase 1 surface only.
+This document captures the Phase 1 surface: the components that are stood up,
+the trust domain and SPIFFE IDs, and the request flow.
 
 ## Components in Phase 1
 

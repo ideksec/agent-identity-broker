@@ -1,23 +1,35 @@
-# Agent Identity Broker (POC)
+# Agent Identity Broker
 
-> ## ⚠️ WARNING — VIBE-CODED, NOT FOR PRODUCTION ⚠️
+> **Experimental proof of concept — not production software.**
 >
-> **This repository is a vibe-coded learning/experimentation project. It has
-> NOT been security-reviewed, threat-modeled, penetration-tested, or hardened
-> in any meaningful way. It almost certainly contains bugs, broken assumptions,
-> insecure defaults, and outright mistakes.**
->
-> **DO NOT use this code, or any part of it, in a production system, in any
-> environment that handles real credentials, or anywhere a failure would have
-> real-world consequences.** It exists purely to learn about SPIFFE, OPA,
-> credential brokering, and related concepts. Treat it as a sketch, not a
-> reference implementation.
+> This repository explores identity and authorization patterns for autonomous
+> and user-delegated AI agents, including SPIFFE workload identity, short-lived
+> credential brokering, policy-based authorization, and auditable delegation.
+> It is intentionally experimental and has not been production-hardened or
+> independently security-reviewed.
 
-Central identity broker that issues short-lived, policy-scoped credentials to
-AI agents on Kubernetes. SPIFFE workload identity in, GitHub / AWS / SaaS
-access credentials out, every decision audited.
+A central identity broker that issues short-lived, policy-scoped credentials to
+AI agents on Kubernetes: SPIFFE workload identity in, GitHub / AWS / SaaS access
+credentials out, every decision authorized against policy and audited.
 
-This repo is being built phase-by-phase per `POC_SPEC.md`. Current state: **Phase 1**.
+This repo is being built phase-by-phase (see [Phases](#phases) below). Current state: **Phase 1**.
+
+## Why I built this
+
+As AI agents start taking real actions in real systems, they need to
+authenticate to services like GitHub, AWS, and SaaS APIs. The default today is
+to hand an agent a long-lived, broadly-scoped API key in an environment
+variable — a credential that never expires, is over-privileged, can't be
+attributed to a specific run, and gives no way to distinguish an agent acting
+on its own from one acting on behalf of a user.
+
+This project explores a different model: give each agent a strong,
+cryptographically-verifiable *workload* identity (SPIFFE/SPIRE), and have a
+central broker exchange that identity — plus optional on-behalf-of user
+context — for **short-lived, narrowly-scoped, policy-checked** credentials to
+downstream systems, with every decision recorded in an audit log. It's a
+hands-on way for me to work through the identity primitives (SPIFFE, OIDC
+federation, OPA) that I think agentic systems will increasingly depend on.
 
 ## Phase 1 status
 
@@ -49,7 +61,8 @@ make demo      # run demo-agent Job, tail logs
 
 ## Architecture
 
-See `docs/ARCHITECTURE.md`. The full spec lives in `POC_SPEC.md`.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the Phase 1 component
+layout, trust domain, and request flow.
 
 ## Phases
 
@@ -75,7 +88,7 @@ pytest -v tests/integration/test_phase1.py
 
 ## Layout
 
-See `POC_SPEC.md` §5 for the full file tree. Key pieces of Phase 1:
+Key pieces of Phase 1:
 
 - `broker/` — FastAPI service (Python 3.12)
 - `mock-idp/` — issues user JWTs for OBO testing
@@ -85,3 +98,18 @@ See `POC_SPEC.md` §5 for the full file tree. Key pieces of Phase 1:
 - `deploy/helm-values/spire-values.yaml` — SPIRE Helm values
 - `policy/` — OPA policies + agent/user data (stub policy in Phase 1)
 - `Makefile` — `up`, `down`, `seed`, `demo`, dev loops
+
+## Security note
+
+No credentials are committed to this repository. All secrets (Postgres
+password, vault key, mock-IdP and broker signing keys) are generated at
+`make seed` time as Kubernetes Secrets; `.env` and key material are
+git-ignored, and `.env.example` contains placeholders only. The full commit
+history has been scanned with [gitleaks](https://github.com/gitleaks/gitleaks).
+
+That said — see the disclaimer at the top. This is an experiment, not a
+security-reviewed system. Please don't run it against real credentials.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
