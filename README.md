@@ -1,5 +1,10 @@
 # Agent Identity Broker
 
+![Status: experimental](https://img.shields.io/badge/status-experimental-orange)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
+[![secret-scan](https://github.com/ideksec/agent-identity-broker/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/ideksec/agent-identity-broker/actions/workflows/secret-scan.yml)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
+
 > **Experimental proof of concept — not production software.**
 >
 > This repository explores identity and authorization patterns for autonomous
