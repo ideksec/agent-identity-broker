@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 def _iso(epoch: int) -> str:
-    return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat().replace(
+    return datetime.fromtimestamp(epoch, tz=UTC).isoformat().replace(
         "+00:00", "Z"
     )
 

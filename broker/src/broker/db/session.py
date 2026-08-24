@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-
 _engine = None
 _session_factory = None
 

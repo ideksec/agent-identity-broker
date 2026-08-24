@@ -9,7 +9,6 @@ from pydantic import BaseModel
 
 from mock_idp.keys import SigningKey
 
-
 ISSUER = os.environ.get(
     "IDP_ISSUER", "https://mock-idp.broker-system.svc.cluster.local"
 )

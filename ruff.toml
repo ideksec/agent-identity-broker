@@ -1,0 +1,19 @@
+target-version = "py312"
+line-length = 100
+
+[lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # bugbear
+    "UP", # pyupgrade
+]
+
+[lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom puts these calls in argument defaults.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header"]
+
+[lint.isort]
+known-first-party = ["broker", "agent_sdk", "tests"]
