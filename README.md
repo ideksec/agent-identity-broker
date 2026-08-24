@@ -2,6 +2,7 @@
 
 ![Status: experimental](https://img.shields.io/badge/status-experimental-orange)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
+[![ci](https://github.com/ideksec/agent-identity-broker/actions/workflows/ci.yml/badge.svg)](https://github.com/ideksec/agent-identity-broker/actions/workflows/ci.yml)
 [![secret-scan](https://github.com/ideksec/agent-identity-broker/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/ideksec/agent-identity-broker/actions/workflows/secret-scan.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
 
@@ -83,8 +84,13 @@ See `docs/PHASE-CHECKLIST.md` for acceptance criteria per phase.
 ## Running tests
 
 ```bash
-# Unit tests run anywhere:
-cd broker && pip install -e . && pytest -v ../tests/unit/broker
+# Unit tests run anywhere (same as CI):
+pip install -e './broker[dev]' -e ./sdk
+make test-unit
+
+# Lint (same as CI):
+pip install ruff
+make lint
 
 # Integration tests assume the cluster is up:
 make up && make seed
