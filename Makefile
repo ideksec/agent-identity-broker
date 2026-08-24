@@ -5,7 +5,7 @@ NS_BROKER := broker-system
 NS_AGENTS := agents
 
 .PHONY: help up down seed demo logs-broker logs-mock-idp logs-demo \
-    psql opa-shell test test-unit test-integration \
+    psql opa-shell lint test test-unit test-integration \
     images broker-dev mock-idp-dev demo-agent-dev clean
 
 help:
@@ -89,8 +89,11 @@ opa-shell: ## curl loop against the broker's OPA sidecar
 	kubectl -n $(NS_BROKER) exec -it $$POD -c opa -- /bin/sh
 
 # ------------------------------------------------------------------
-# Tests
+# Lint / tests
 # ------------------------------------------------------------------
+lint: ## Run ruff over the whole repo
+	@ruff check .
+
 test: test-unit ## Run all tests
 
 test-unit: ## Run unit tests (no cluster needed)

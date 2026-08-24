@@ -7,7 +7,6 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     LargeBinary,
-    String,
     Text,
     func,
 )

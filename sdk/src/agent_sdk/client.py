@@ -33,7 +33,7 @@ class BrokerClient:
     async def aclose(self) -> None:
         await self.http.aclose()
 
-    async def __aenter__(self) -> "BrokerClient":
+    async def __aenter__(self) -> BrokerClient:
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:

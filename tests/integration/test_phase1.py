@@ -14,7 +14,6 @@ import pytest
 
 from tests.integration.conftest import run_in_postgres
 
-
 pytestmark = pytest.mark.skipif(
     shutil.which("kubectl") is None,
     reason="integration tests require kubectl + a running kind cluster",

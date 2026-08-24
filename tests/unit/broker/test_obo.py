@@ -1,10 +1,9 @@
 import time
 
-import jwt
 import pytest
 
 from broker.auth.obo import InvalidOBO, OBOValidator
-from tests.unit.broker.test_spiffe import _StaticJWKS, _gen_rsa_keypair_and_jwk, _sign
+from tests.unit.broker.test_spiffe import _gen_rsa_keypair_and_jwk, _sign, _StaticJWKS
 
 
 @pytest.mark.asyncio
