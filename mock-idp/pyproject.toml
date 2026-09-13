@@ -10,6 +10,7 @@ dependencies = [
     "cryptography==50.0.1",
     "PyYAML==6.0.2",
     "pydantic==2.9.2",
+    "ulid-py==1.1.0",
 ]
 
 [build-system]
