@@ -1,7 +1,8 @@
 """SVID source — fetches a JWT-SVID from the SPIRE Workload API.
 
-The default backend uses pyspiffe's grpc client. A simple file-backed fallback
-is also provided for testing and for environments where pyspiffe is unavailable.
+The default backend uses the ``spiffe`` library's gRPC client. A simple
+file-backed fallback is also provided for testing and for environments where
+``spiffe`` is unavailable.
 """
 from __future__ import annotations
 
@@ -25,21 +26,23 @@ class WorkloadAPISVIDSource:
     ):
         self.audience = audience
         self.socket_path = socket_path
-        # Lazily import pyspiffe so unit tests can patch / not need the dep.
+        # Lazily import spiffe so unit tests can patch / not need the dep.
         self._jwt_source = None
 
     def _get_source(self):
         if self._jwt_source is None:
-            from spiffe.workloadapi.default_jwt_source import DefaultJwtSource
+            from spiffe import JwtSource
 
-            os.environ.setdefault(
-                "SPIFFE_ENDPOINT_SOCKET", f"unix://{self.socket_path}"
+            # An explicit SPIFFE_ENDPOINT_SOCKET in the environment wins;
+            # otherwise use the socket path this source was built with.
+            socket = os.environ.get("SPIFFE_ENDPOINT_SOCKET") or (
+                f"unix://{self.socket_path}"
             )
-            self._jwt_source = DefaultJwtSource()
+            self._jwt_source = JwtSource(socket_path=socket)
         return self._jwt_source
 
     async def fetch(self) -> str:
-        # pyspiffe is sync; offload to threadpool if needed. Workload API
+        # spiffe is sync; offload to threadpool if needed. Workload API
         # calls are already cheap, so do it inline.
         src = self._get_source()
         svid = src.fetch_svid(audience={self.audience})

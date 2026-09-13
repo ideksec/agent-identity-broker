@@ -4,10 +4,10 @@ version = "0.1.0"
 description = "Mock IdP for OBO user JWTs"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi==0.115.0",
+    "fastapi==0.141.1",
     "uvicorn[standard]==0.32.0",
-    "PyJWT[crypto]==2.9.0",
-    "cryptography==43.0.3",
+    "PyJWT[crypto]==2.13.0",
+    "cryptography==50.0.1",
     "PyYAML==6.0.2",
     "pydantic==2.9.2",
 ]
