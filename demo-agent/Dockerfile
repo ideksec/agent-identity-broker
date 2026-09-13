@@ -33,6 +33,11 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH"
 
+# Apply Debian security updates at build time; see broker/Dockerfile.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 

@@ -27,8 +27,20 @@ three views describe the same resolved set.
 - **Critical vulnerabilities with a fix available** in our own three images
   (Grype, image-sbom job). Grype results are also uploaded to the repository's
   code-scanning tab. The threshold is the `GRYPE_SEVERITY_GATE` variable at
-  the top of the workflow; the intent is to tighten it to `high` once
-  `python:3.12-slim` is pinned by digest.
+  the top of the workflow.
+
+  The first run of this gate failed on every image: the `python:3.12-slim`
+  tag lags Debian's security archive, and glibc and perl-base in the base
+  layer carried Critical CVEs whose fixes Debian had already published. The
+  runtime stage of each Dockerfile now runs `apt-get upgrade` so images pick
+  up Debian's security updates at build time. Expect this to recur whenever
+  the base tag falls behind; the fix is a rebuild, not a code change.
+
+  Why `critical` and not `high`: Grype also reports High CVEs against the
+  Python 3.12 interpreter binary itself, with fixes only in 3.13 and later.
+  `only-fixed` counts those as fixable, so a `high` gate would fail on every
+  build until the base image moves to a newer Python. Tighten the gate when
+  that happens.
 
 Third-party images (`postgres:16`, `openpolicyagent/opa:0.70.0`) are SBOMed
 and scanned for visibility but not gated — fixes come from upstream, and the

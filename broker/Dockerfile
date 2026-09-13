@@ -37,7 +37,11 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH"
 
+# Apply Debian security updates at build time. The python:3.12-slim tag lags
+# Debian's security archive, and the SBOM workflow's Grype gate fails on
+# fixed critical CVEs in the base layer (glibc, perl-base) otherwise.
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
