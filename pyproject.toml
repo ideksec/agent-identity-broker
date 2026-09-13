@@ -1,0 +1,10 @@
+# uv workspace root. This file has no [project] table on purpose: it exists so
+# the four packages below share one lockfile (uv.lock) and one resolved
+# dependency set, which is what the SBOM workflow and the Dockerfiles consume.
+#
+#   uv lock                                  # refresh uv.lock after editing any pyproject
+#   uv sync --locked --all-packages --all-extras   # dev environment for tests
+#   uv sync --locked --no-dev --package broker     # what the broker image installs
+
+[tool.uv.workspace]
+members = ["broker", "sdk", "mock-idp", "demo-agent"]

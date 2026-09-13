@@ -83,18 +83,26 @@ See `docs/PHASE-CHECKLIST.md` for acceptance criteria per phase.
 
 ## Running tests
 
+The four Python packages (`broker`, `sdk`, `mock-idp`, `demo-agent`) form a
+[uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) with a
+single lockfile, `uv.lock`. CI, the Dockerfiles and the SBOM workflow all
+install from that lockfile, so it is the source of truth for what actually
+runs.
+
 ```bash
-# Unit tests run anywhere (same as CI):
-pip install -e './broker[dev]' -e ./sdk
+# Unit tests run anywhere (same as CI). --locked refuses a stale lockfile.
+uv sync --locked --all-packages --all-extras
 make test-unit
 
 # Lint (same as CI):
-pip install ruff
 make lint
 
 # Integration tests assume the cluster is up:
 make up && make seed
-pytest -v tests/integration/test_phase1.py
+make test-integration
+
+# After editing any pyproject.toml, refresh the lockfile and commit it:
+uv lock
 ```
 
 ## Layout
