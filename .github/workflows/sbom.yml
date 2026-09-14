@@ -1,0 +1,240 @@
+name: sbom
+
+# Software Bill of Materials + vulnerability gates. See docs/SBOM.md.
+#
+#   source-sbom      CycloneDX SBOM from uv.lock; pip-audit fails on any advisory.
+#   image-sbom       Build each image from the lockfile, Syft it (CycloneDX + SPDX),
+#                    Grype-gate it, upload results to code scanning.
+#   deployment-bom   SBOMs for the third-party images the manifests deploy, plus a
+#                    deployment BOM (images + Helm chart versions) read from the repo.
+#   publish-attest   Opt-in (repo variable PUBLISH_IMAGES=true), main only: push
+#                    images to GHCR and attach a signed SBOM attestation.
+#
+# The weekly schedule re-runs the same gates against the same lockfile so a
+# newly published advisory turns the workflow red without a code change.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.8.17"
+  CYCLONEDX_BOM_VERSION: "7.3.1"
+  PIP_AUDIT_VERSION: "2.10.1"
+  # Grype gate for our own images: fail on vulnerabilities at this severity
+  # or above that have a fix available. Tighten to "high" once the base
+  # image is pinned by digest.
+  GRYPE_SEVERITY_GATE: critical
+
+jobs:
+  source-sbom:
+    name: source SBOM + pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      # Two exports of the same lock: hashed for the SBOM, plain for pip-audit.
+      # --no-emit-workspace leaves out our own four packages (they are the
+      # subject of the BOM, not components of it).
+      - name: Export locked requirements
+        run: |
+          mkdir -p sbom
+          uv export --locked --all-packages --no-dev --no-emit-workspace \
+            --format requirements-txt -o sbom/requirements.lock.txt
+          uv export --locked --all-packages --no-dev --no-emit-workspace --no-hashes \
+            --format requirements-txt -o sbom/requirements.nohash.txt
+
+      - name: Generate CycloneDX SBOM from the lockfile
+        run: |
+          uvx --from "cyclonedx-bom==${CYCLONEDX_BOM_VERSION}" cyclonedx-py requirements \
+            sbom/requirements.lock.txt --of JSON --sv 1.6 \
+            -o sbom/agent-identity-broker.source.cdx.json
+          python3 -c "import json; d=json.load(open('sbom/agent-identity-broker.source.cdx.json')); print('components:', len(d['components']))"
+
+      - name: pip-audit (fails on any known vulnerability)
+        run: |
+          uvx "pip-audit==${PIP_AUDIT_VERSION}" \
+            -r sbom/requirements.nohash.txt --no-deps --strict --desc on
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom-source
+          path: sbom/
+          if-no-files-found: error
+
+  image-sbom:
+    name: image SBOM + grype (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [broker, mock-idp, demo-agent]
+    env:
+      IMAGE: localhost/agent-broker/${{ matrix.image }}:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image from the lockfile
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.image }}/Dockerfile
+          load: true
+          tags: ${{ env.IMAGE }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+      - uses: anchore/sbom-action/download-syft@v0
+        id: syft
+
+      - name: Generate image SBOMs (CycloneDX + SPDX)
+        run: |
+          mkdir -p sbom
+          "${{ steps.syft.outputs.cmd }}" "docker:${IMAGE}" \
+            -o cyclonedx-json="sbom/${{ matrix.image }}.cdx.json" \
+            -o spdx-json="sbom/${{ matrix.image }}.spdx.json"
+          python3 -c "import json; d=json.load(open('sbom/${{ matrix.image }}.cdx.json')); print('components:', len(d.get('components', [])))"
+
+      - name: Grype gate (fixed ${{ env.GRYPE_SEVERITY_GATE }}+ fails)
+        id: grype
+        uses: anchore/scan-action@v6
+        with:
+          sbom: sbom/${{ matrix.image }}.cdx.json
+          fail-build: true
+          severity-cutoff: ${{ env.GRYPE_SEVERITY_GATE }}
+          only-fixed: true
+          output-format: sarif
+
+      - name: Upload grype results to code scanning
+        if: always() && steps.grype.outputs.sarif != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.grype.outputs.sarif }}
+          category: grype-${{ matrix.image }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom-image-${{ matrix.image }}
+          path: sbom/
+          if-no-files-found: error
+
+  deployment-bom:
+    name: deployment BOM (third-party images + charts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anchore/sbom-action/download-syft@v0
+        id: syft
+
+      - name: Deployment BOM from the manifests
+        run: |
+          mkdir -p sbom
+          python3 scripts/deployment-bom.py -o sbom/deployment.cdx.json
+
+      # Upstream images we run but do not build. SBOMed for inventory and
+      # scanned for visibility; not gated, because fixes come from upstream.
+      - name: SBOM + scan the third-party images the manifests deploy
+        run: |
+          while read -r img; do
+            [ -z "$img" ] && continue
+            safe=$(printf '%s' "$img" | tr '/:@' '___')
+            echo "::group::${img}"
+            "${{ steps.syft.outputs.cmd }}" "registry:${img}" \
+              -o cyclonedx-json="sbom/third-party.${safe}.cdx.json"
+            echo "::endgroup::"
+          done < <(python3 scripts/deployment-bom.py --list-images)
+
+      - uses: anchore/scan-action@v6
+        with:
+          path: sbom/
+          fail-build: false
+          output-format: table
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom-deployment
+          path: sbom/
+          if-no-files-found: error
+
+  publish-attest:
+    name: publish to GHCR + attest SBOM (${{ matrix.image }})
+    # Opt-in. Set the repository variable PUBLISH_IMAGES to "true" to publish
+    # public images under ghcr.io/<owner>/agent-identity-broker/<name> and
+    # attach a signed SBOM attestation to each. Verify with:
+    #   gh attestation verify oci://ghcr.io/<owner>/agent-identity-broker/broker:<sha> --owner <owner>
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
+    needs: [source-sbom, image-sbom]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [broker, mock-idp, demo-agent]
+    env:
+      REGISTRY_IMAGE: ghcr.io/${{ github.repository }}/${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.image }}/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY_IMAGE }}:${{ github.sha }}
+            ${{ env.REGISTRY_IMAGE }}:main
+          cache-from: type=gha,scope=${{ matrix.image }}
+
+      - uses: anchore/sbom-action/download-syft@v0
+        id: syft
+
+      - name: SBOM the pushed digest
+        run: |
+          "${{ steps.syft.outputs.cmd }}" \
+            "registry:${REGISTRY_IMAGE}@${{ steps.build.outputs.digest }}" \
+            -o cyclonedx-json=sbom.cdx.json
+
+      - name: Attest SBOM and push attestation to the registry
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.REGISTRY_IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: sbom.cdx.json
+          push-to-registry: true

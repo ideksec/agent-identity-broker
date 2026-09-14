@@ -49,5 +49,4 @@ deploy/k8s/10-spire/*.yaml
 
 # uv / poetry
 .python-version
-uv.lock
 poetry.lock

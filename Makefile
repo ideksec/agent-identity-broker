@@ -91,16 +91,20 @@ opa-shell: ## curl loop against the broker's OPA sidecar
 # ------------------------------------------------------------------
 # Lint / tests
 # ------------------------------------------------------------------
+# All three targets run inside the locked workspace environment (uv.lock) so
+# local results match CI. `uv sync --locked --all-packages --all-extras` first.
+RUFF_VERSION ?= 0.9.4
+
 lint: ## Run ruff over the whole repo
-	@ruff check .
+	@uv run --locked --with "ruff==$(RUFF_VERSION)" ruff check .
 
 test: test-unit ## Run all tests
 
 test-unit: ## Run unit tests (no cluster needed)
-	@cd $(ROOT) && PYTHONPATH=. python -m pytest tests/unit -v
+	@cd $(ROOT) && uv run --locked python -m pytest tests/unit -v
 
 test-integration: ## Run integration tests against the running cluster
-	@cd $(ROOT) && PYTHONPATH=. python -m pytest tests/integration -v
+	@cd $(ROOT) && uv run --locked python -m pytest tests/integration -v
 
 # ------------------------------------------------------------------
 clean: down ## Tear down everything

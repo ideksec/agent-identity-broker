@@ -4,6 +4,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![ci](https://github.com/ideksec/agent-identity-broker/actions/workflows/ci.yml/badge.svg)](https://github.com/ideksec/agent-identity-broker/actions/workflows/ci.yml)
 [![secret-scan](https://github.com/ideksec/agent-identity-broker/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/ideksec/agent-identity-broker/actions/workflows/secret-scan.yml)
+[![sbom](https://github.com/ideksec/agent-identity-broker/actions/workflows/sbom.yml/badge.svg)](https://github.com/ideksec/agent-identity-broker/actions/workflows/sbom.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
 
 > **Experimental proof of concept — not production software.**
@@ -83,18 +84,26 @@ See `docs/PHASE-CHECKLIST.md` for acceptance criteria per phase.
 
 ## Running tests
 
+The four Python packages (`broker`, `sdk`, `mock-idp`, `demo-agent`) form a
+[uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) with a
+single lockfile, `uv.lock`. CI, the Dockerfiles and the SBOM workflow all
+install from that lockfile, so it is the source of truth for what actually
+runs.
+
 ```bash
-# Unit tests run anywhere (same as CI):
-pip install -e './broker[dev]' -e ./sdk
+# Unit tests run anywhere (same as CI). --locked refuses a stale lockfile.
+uv sync --locked --all-packages --all-extras
 make test-unit
 
 # Lint (same as CI):
-pip install ruff
 make lint
 
 # Integration tests assume the cluster is up:
 make up && make seed
-pytest -v tests/integration/test_phase1.py
+make test-integration
+
+# After editing any pyproject.toml, refresh the lockfile and commit it:
+uv lock
 ```
 
 ## Layout
@@ -109,6 +118,13 @@ Key pieces of Phase 1:
 - `deploy/helm-values/spire-values.yaml` — SPIRE Helm values
 - `policy/` — OPA policies + agent/user data (stub policy in Phase 1)
 - `Makefile` — `up`, `down`, `seed`, `demo`, dev loops
+
+## Supply chain
+
+Every push produces CycloneDX and SPDX SBOMs for the source, each container
+image and the deployment, gated by `pip-audit` and Grype. See
+[docs/SBOM.md](docs/SBOM.md) for what is produced, what fails the build, and
+why there is no separate AI BOM.
 
 ## Security note
 
